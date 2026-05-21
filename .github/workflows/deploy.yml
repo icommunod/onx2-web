@@ -1,48 +1,47 @@
-# Pipeline de déploiement automatique vers l'hébergement IONOS.
-#
-# Secrets requis (GitHub → Settings → Secrets → Actions) :
-# IONOS_HOST     : adresse IP ou hostname FTP depuis panel IONOS → Hébergement → Accès FTP
-# IONOS_USER     : u115594766
-# IONOS_PASSWORD : votre mot de passe
-# IONOS_PORT     : 22 (SFTP) ou 21 (FTP)
+# Pipeline définitif : GitHub → IONOS webspace
+# Prérequis : dans IONOS panel → FTP → désactiver restriction IP
+# Secrets GitHub requis : IONOS_HOST, IONOS_USER, IONOS_PASSWORD
 
 name: Deploy to IONOS
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main      # → Production (onx2.fr)
+      - develop   # → Préprod (onx2.eu)
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environnement cible'
+        required: true
+        default: 'preprod'
+        type: choice
+        options: [production, preprod]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
 
-      - name: Install & Build
-        run: npm ci && npm run build
+      - name: Install dependencies
+        run: npm ci
 
-      # ── Option A : SFTP (port 22) — décommenter si le hostname SSH résout ──
-      # - name: Deploy via SFTP
-      #   uses: appleboy/scp-action@v0.1.7
-      #   with:
-      #     host: ${{ secrets.IONOS_HOST }}
-      #     username: ${{ secrets.IONOS_USER }}
-      #     password: ${{ secrets.IONOS_PASSWORD }}
-      #     port: 22
-      #     source: "out/*"
-      #     target: "/"
-      #     strip_components: 1
+      - name: Build (Next.js → ./out/)
+        run: npm run build
+        env:
+          NEXT_PUBLIC_ENV: ${{ github.ref == 'refs/heads/main' && 'production' || 'preprod' }}
+          NEXT_PUBLIC_SITE_URL: ${{ github.ref == 'refs/heads/main' && 'https://onx2.fr' || 'https://onx2.eu' }}
 
-      # ── Option B : FTPS (port 21) — protocole standard IONOS webspace ──
-      - name: Deploy via FTPS
+      - name: Deploy via FTPS (port 21)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.IONOS_HOST }}
@@ -56,3 +55,10 @@ jobs:
             **/.git*
             **/.git*/**
             **/node_modules/**
+
+      - name: Summary
+        run: |
+          echo "✅ Deployed to IONOS"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Env: ${{ github.ref == 'refs/heads/main' && 'Production (onx2.fr)' || 'Préprod (onx2.eu)' }}"
+          echo "Commit: ${{ github.sha }}"
