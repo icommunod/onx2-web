@@ -1,47 +1,42 @@
 # Pipeline de déploiement automatique vers l'hébergement IONOS.
-# Déclenché à chaque "git push" sur la branche main.
-#
-# Secrets requis (GitHub → Settings → Secrets → Actions) :
-# IONOS_HOST     : hostaccess997389426.webspace-data.io
-# IONOS_USER     : u115594766
-# IONOS_PASSWORD : votre mot de passe SSH IONOS
-# IONOS_PORT     : 22
+# Secrets requis : IONOS_HOST, IONOS_USER, IONOS_PASSWORD, IONOS_PORT
 
 name: Deploy to IONOS
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install & Build
+        run: npm ci && npm run build
 
-      - name: Build (Next.js static export → ./out/)
-        run: npm run build
-
-      - name: Deploy via SFTP to IONOS
-        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
-        with:
-          server: ${{ secrets.IONOS_HOST }}
-          username: ${{ secrets.IONOS_USER }}
-          password: ${{ secrets.IONOS_PASSWORD }}
-          port: ${{ secrets.IONOS_PORT }}
-          local_path: './out/*'
-          remote_path: '/'
-          sftp_only: true
-          delete_remote_files: false
+      - name: Deploy via SFTP (lftp)
+        env:
+          IONOS_HOST: ${{ secrets.IONOS_HOST }}
+          IONOS_USER: ${{ secrets.IONOS_USER }}
+          IONOS_PASSWORD: ${{ secrets.IONOS_PASSWORD }}
+          IONOS_PORT: ${{ secrets.IONOS_PORT }}
+        run: |
+          sudo apt-get install -y lftp
+          lftp -c "
+            set sftp:connect-program 'ssh -a -x -p $IONOS_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null';
+            set net:timeout 30;
+            set net:max-retries 3;
+            open sftp://$IONOS_USER:$IONOS_PASSWORD@$IONOS_HOST;
+            mirror -R --delete --verbose ./out/ /;
+            bye
+          "
