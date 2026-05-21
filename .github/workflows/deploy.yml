@@ -1,8 +1,11 @@
 # Pipeline de déploiement automatique vers l'hébergement IONOS.
 # Déclenché à chaque "git push" sur la branche main.
 #
-# Pré-requis : dans GitHub -> Settings -> Secrets and variables -> Actions,
-# créez les 4 secrets : IONOS_HOST, IONOS_USER, IONOS_PASSWORD, IONOS_PORT.
+# Secrets requis (GitHub → Settings → Secrets → Actions) :
+# IONOS_HOST     : hostaccess997389426.webspace-data.io
+# IONOS_USER     : u115594766
+# IONOS_PASSWORD : votre mot de passe SSH IONOS
+# IONOS_PORT     : 22
 
 name: Deploy to IONOS
 
@@ -31,17 +34,14 @@ jobs:
       - name: Build (Next.js static export → ./out/)
         run: npm run build
 
-      - name: Deploy via FTPS to IONOS
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Deploy via SFTP to IONOS
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
         with:
           server: ${{ secrets.IONOS_HOST }}
           username: ${{ secrets.IONOS_USER }}
           password: ${{ secrets.IONOS_PASSWORD }}
           port: ${{ secrets.IONOS_PORT }}
-          protocol: ftps
-          local-dir: ./out/
-          server-dir: /
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
+          local_path: './out/*'
+          remote_path: '/'
+          sftp_only: true
+          delete_remote_files: false
