@@ -1,5 +1,10 @@
 # Pipeline de déploiement automatique vers l'hébergement IONOS.
-# Secrets requis : IONOS_HOST, IONOS_USER, IONOS_PASSWORD, IONOS_PORT
+#
+# Secrets requis (GitHub → Settings → Secrets → Actions) :
+# IONOS_HOST     : adresse IP ou hostname FTP depuis panel IONOS → Hébergement → Accès FTP
+# IONOS_USER     : u115594766
+# IONOS_PASSWORD : votre mot de passe
+# IONOS_PORT     : 22 (SFTP) ou 21 (FTP)
 
 name: Deploy to IONOS
 
@@ -15,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -24,19 +29,30 @@ jobs:
       - name: Install & Build
         run: npm ci && npm run build
 
-      - name: Deploy via SFTP (lftp)
-        env:
-          IONOS_HOST: ${{ secrets.IONOS_HOST }}
-          IONOS_USER: ${{ secrets.IONOS_USER }}
-          IONOS_PASSWORD: ${{ secrets.IONOS_PASSWORD }}
-          IONOS_PORT: ${{ secrets.IONOS_PORT }}
-        run: |
-          sudo apt-get install -y lftp
-          lftp -c "
-            set sftp:connect-program 'ssh -a -x -p $IONOS_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null';
-            set net:timeout 30;
-            set net:max-retries 3;
-            open sftp://$IONOS_USER:$IONOS_PASSWORD@$IONOS_HOST;
-            mirror -R --delete --verbose ./out/ /;
-            bye
-          "
+      # ── Option A : SFTP (port 22) — décommenter si le hostname SSH résout ──
+      # - name: Deploy via SFTP
+      #   uses: appleboy/scp-action@v0.1.7
+      #   with:
+      #     host: ${{ secrets.IONOS_HOST }}
+      #     username: ${{ secrets.IONOS_USER }}
+      #     password: ${{ secrets.IONOS_PASSWORD }}
+      #     port: 22
+      #     source: "out/*"
+      #     target: "/"
+      #     strip_components: 1
+
+      # ── Option B : FTPS (port 21) — protocole standard IONOS webspace ──
+      - name: Deploy via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.IONOS_HOST }}
+          username: ${{ secrets.IONOS_USER }}
+          password: ${{ secrets.IONOS_PASSWORD }}
+          port: 21
+          protocol: ftps
+          local-dir: ./out/
+          server-dir: /
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
