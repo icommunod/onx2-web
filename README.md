@@ -1,18 +1,31 @@
 # OnX2 Web
 
-Next.js + Tailwind version of the OnX2 landing page.
+Site OnX2 (landing page C-UAS) — Next.js 16 + React 19 + Tailwind 4.
 
-## Run locally
+## Lancer en local
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open `http://localhost:3000`.
+Puis ouvrir `http://localhost:5173`.
+
+Pages disponibles :
+
+- `/` — landing page OnX2
+- `/societe/onx2/website` — console de déploiement (tableau de bord IONOS +
+  générateur de pipeline Git → GitHub Actions)
 
 ## Build
 
 ```bash
 npm run build
 ```
+
+## Déploiement
+
+Le déploiement vers l'hébergement IONOS est automatisé : chaque `git push` sur
+la branche `main` déclenche le workflow `.github/workflows/deploy.yml`.
+
+Voir le guide complet : [DEPLOIEMENT.md](./DEPLOIEMENT.md)
