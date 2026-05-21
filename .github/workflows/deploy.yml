@@ -1,0 +1,51 @@
+# Pipeline de déploiement automatique vers l'hébergement IONOS.
+# Déclenché à chaque "git push" sur la branche main.
+#
+# Pré-requis : dans GitHub -> Settings -> Secrets and variables -> Actions,
+# créez les secrets IONOS_HOST, IONOS_USER, IONOS_PASSWORD, IONOS_PORT.
+# La page console (/societe/onx2/website) génère les valeurs à coller.
+#
+# Remarque : FTP-Deploy-Action utilise le protocole FTP/FTPS (port 21).
+# Le port 22 correspond à SSH/SFTP. Pour un déploiement SFTP, voir le
+# variant proposé par le générateur de la page console.
+
+name: Deploy to IONOS
+
+on:
+  push:
+    branches:
+      - main # déploie uniquement depuis la branche main
+
+  # Permet aussi de lancer le déploiement manuellement depuis l'onglet Actions.
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # --- Étape de build optionnelle ---------------------------------------
+      # Décommentez ce bloc si vous déployez un site compilé.
+      # Pour Next.js : ajoutez `output: "export"` dans next.config.ts afin de
+      # générer un site statique dans ./out, puis réglez local-dir sur ./out.
+      #
+      # - name: Setup Node
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: 20
+      # - name: Install & build
+      #   run: npm ci && npm run build
+      # ----------------------------------------------------------------------
+
+      - name: Deploy via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.IONOS_HOST }}
+          username: ${{ secrets.IONOS_USER }}
+          password: ${{ secrets.IONOS_PASSWORD }}
+          port: ${{ secrets.IONOS_PORT }}
+          protocol: ftps
+          local-dir: ./ # ou ./out/ si vous activez l'étape de build
+          server-dir: / # répertoire racine du webspace IONOS
