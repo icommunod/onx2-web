@@ -1,17 +1,24 @@
 #!/bin/bash
-# Deploy Onx2 → IONOS depuis votre Mac
-# Usage: ./deploy-local.sh
-# Configurez IONOS_HOST ci-dessous avec le hostname FTP de votre panel IONOS
+# Déploiement LOCAL direct vers IONOS (marche depuis votre Mac)
+# Usage: ./deploy-local.sh [preprod|prod]
+# Le hostname FTP doit être rempli depuis IONOS panel → FTP → Serveur FTP
 
-IONOS_HOST="${IONOS_HOST:-REMPLACER_PAR_HOSTNAME_FTP}"
+ENV=${1:-preprod}
+IONOS_HOST="${IONOS_HOST:-REMPLACER_PAR_HOSTNAME_FTP_IONOS}"
 IONOS_USER="u115594766"
-IONOS_PORT="21"
 
-echo "🔨 Build Next.js..."
-npm run build || { echo "❌ Build failed"; exit 1; }
+if [ "$ENV" = "prod" ]; then
+  DOMAIN="onx2.fr"
+  BRANCH="main"
+else
+  DOMAIN="onx2.eu"
+  BRANCH="develop"
+fi
 
-echo "📦 Contenu ./out/ :"
-ls out/ | head -10
+echo "🔨 Build Next.js pour $ENV ($DOMAIN)..."
+NEXT_PUBLIC_ENV=$ENV NEXT_PUBLIC_SITE_URL="https://$DOMAIN" npm run build || exit 1
+
+echo "📦 ./out/ prêt : $(du -sh out/ | cut -f1)"
 
 echo "🚀 Déploiement FTPS vers $IONOS_HOST..."
 lftp -c "
@@ -20,9 +27,7 @@ lftp -c "
   set ssl:verify-certificate false;
   set net:timeout 30;
   set net:max-retries 3;
-  open ftp://$IONOS_USER@$IONOS_HOST:$IONOS_PORT;
+  open ftp://$IONOS_USER@$IONOS_HOST:21;
   mirror -R --delete --verbose ./out/ /;
   bye
-"
-
-echo "✅ Déployé sur https://home61303.ionos.fr/"
+" && echo "✅ Déployé sur https://$DOMAIN/" || echo "❌ Échec — vérifiez IONOS_HOST et la restriction IP"
