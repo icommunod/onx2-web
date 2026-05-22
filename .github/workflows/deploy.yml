@@ -1,6 +1,9 @@
-# Pipeline définitif : GitHub → IONOS webspace
-# Prérequis : dans IONOS panel → FTP → désactiver restriction IP
-# Secrets GitHub requis : IONOS_HOST, IONOS_USER, IONOS_PASSWORD
+# Pipeline définitif : GitHub → IONOS via rsync/SSH
+# Host    : access997389426.webspace-data.io (port 22)
+# User    : u115594766
+# Webroot : /homepages/29/d997389426/htdocs
+#
+# Secrets GitHub : IONOS_HOST, IONOS_USER, IONOS_PASSWORD, IONOS_WEBROOT
 
 name: Deploy to IONOS
 
@@ -8,7 +11,7 @@ on:
   push:
     branches:
       - main      # → Production (onx2.fr)
-      - develop   # → Préprod (onx2.eu)
+      - develop   # → Préprod   (onx2.eu)
   workflow_dispatch:
     inputs:
       environment:
@@ -21,7 +24,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,33 +35,25 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build (Next.js → ./out/)
-        run: npm run build
+      - name: Install & Build
+        run: npm ci && npm run build
         env:
           NEXT_PUBLIC_ENV: ${{ github.ref == 'refs/heads/main' && 'production' || 'preprod' }}
           NEXT_PUBLIC_SITE_URL: ${{ github.ref == 'refs/heads/main' && 'https://onx2.fr' || 'https://onx2.eu' }}
 
-      - name: Deploy via FTPS (port 21)
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.IONOS_HOST }}
-          username: ${{ secrets.IONOS_USER }}
-          password: ${{ secrets.IONOS_PASSWORD }}
-          port: 21
-          protocol: ftps
-          local-dir: ./out/
-          server-dir: /
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
+      - name: Install sshpass
+        run: sudo apt-get install -y sshpass
 
-      - name: Summary
+      - name: Deploy via rsync/SSH to IONOS
         run: |
-          echo "✅ Deployed to IONOS"
-          echo "Branch: ${{ github.ref_name }}"
-          echo "Env: ${{ github.ref == 'refs/heads/main' && 'Production (onx2.fr)' || 'Préprod (onx2.eu)' }}"
-          echo "Commit: ${{ github.sha }}"
+          sshpass -p "${{ secrets.IONOS_PASSWORD }}" rsync -avz --delete \
+            -e "ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p 22" \
+            ./out/ \
+            ${{ secrets.IONOS_USER }}@${{ secrets.IONOS_HOST }}:${{ secrets.IONOS_WEBROOT }}/
+
+      - name: Verify & Summary
+        run: |
+          DOMAIN=${{ github.ref == 'refs/heads/main' && 'onx2.fr' || 'onx2.eu' }}
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://$DOMAIN/ || echo "000")
+          echo "## ✅ Deploy → https://$DOMAIN/ (HTTP $STATUS)" >> $GITHUB_STEP_SUMMARY
+          echo "Branche: ${{ github.ref_name }} | Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
