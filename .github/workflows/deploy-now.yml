@@ -1,0 +1,27 @@
+# Alternative : IONOS Deploy Now (service officiel IONOS pour sites statiques)
+# 1. Allez sur https://ionos.space
+# 2. Connectez votre compte GitHub  
+# 3. Sélectionnez le repo icommunod/onx2-web
+# 4. IONOS configure automatiquement ce workflow
+
+name: Deploy Now (IONOS Official)
+
+on:
+  workflow_dispatch:
+    # À activer manuellement depuis https://ionos.space
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci && npm run build
+      # Action officielle IONOS Deploy Now
+      # Nécessite IONOS_API_KEY dans les secrets
+      # - uses: ionos-deploy-now/deploy-action@v1
+      #   with:
+      #     api-key: ${{ secrets.IONOS_API_KEY }}

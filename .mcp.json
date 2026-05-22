@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "type": "stdio",
+      "command": "/opt/homebrew/bin/mcp-server-filesystem",
+      "args": ["/Users/ico/Desktop/Onx2_web"]
+    },
+    "filesystem-gestion-app": {
+      "type": "stdio",
+      "command": "/opt/homebrew/bin/mcp-server-filesystem",
+      "args": ["/Users/ico/Desktop/Cowork/O21/gestion-app/src"]
+    }
+  }
+}
